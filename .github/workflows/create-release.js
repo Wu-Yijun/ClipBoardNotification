@@ -16,7 +16,8 @@ async function main({github, context, sha}) {
   const {tag, tag_sha} = await get_latest_tag({github, context});
 
   // get the release body
-  const {body, origin_body} = await get_release_body({execSync, fs, tag_sha, sha});
+  const {body, origin_body} =
+      await get_release_body({execSync, fs, tag_sha, sha});
 
   // save release_body as artifact
   fs.writeFileSync('release_body.md', origin_body);
@@ -89,17 +90,19 @@ async function get_latest_tag({github, context}) {
     repo: context.repo.repo,    // name of the repo
     per_page: 1                 // only need the first tag
   });
-  try{
+  try {
     const {name, commit: {sha}} = response.data[0];
     // extract the version number from the tag (v1.2.3.4 => major=1, minor=2,
-    // patch=3, build=4) need to convert the version numbers from string to number
+    // patch=3, build=4) need to convert the version numbers from string to
+    // number
     const [major, minor, patch, build] = name.substr(1).split('.').map(Number);
-    console.log(`major: ${major}, minor: ${minor}, patch: ${patch}, build: ${build};`);
+    console.log(
+        `major: ${major}, minor: ${minor}, patch: ${patch}, build: ${build};`);
     console.log(`run number: ${context.runNumber}`);
     // increment the patch number and change build to running number
     const tag = `v${major}.${minor}.${patch + 1}.${context.runNumber}`;
     return {tag, tag_sha: sha};
-  }catch(e){
+  } catch (e) {
     console.log(`Error to get version and sha, return null`);
   }
   return {tag: `v0.1.0.${context.runNumber}`, tag_sha: false};
@@ -108,14 +111,15 @@ async function get_latest_tag({github, context}) {
 async function get_release_body({execSync, fs, tag_sha, sha}) {
   // get necessary text
   execSync('git fetch --prune --unshallow');
-  const commit_header = execSync(`git log ${tag_sha}..`).toString().trim();
+  const commit_header =
+      execSync(`git log ${tag_sha ? tag_sha : ''}..`).toString().trim();
   const changelog = fs.readFileSync(CHANGELOG_FILE, 'utf8');
 
   // link the text
   let body_raw = '## *Commits*:\n\n';
   body_raw += trim_commit_header(commit_header);
   body_raw += '\n\n---\n\n' + changelog;
-  if(tag_sha!==false){
+  if (tag_sha !== false) {
     const commit_diff =
         execSync(`git diff --word-diff=porcelain ${tag_sha} ${sha}`).toString();
     body_raw += '\n\n---\n\n## *Git Diff*:\n\n';
@@ -176,8 +180,8 @@ second line
     const body = content.slice(1).join('\n');
     const trim_date =
         new Date(date).toLocaleString(LOCAL[0], LOCAL[1]) + LOCAL[2];
-    result +=
-        `${header}*${trim_date}* by [${author}](mailto:${email})\n\n${body}\n\n`;
+    result += `${header}*${trim_date}* by [${author}](mailto:${email})\n\n${
+        body}\n\n`;
   }
   if (count > 3) {
     result += '</details>';
