@@ -5,6 +5,8 @@
 # include
 !/.gitignore
 !/.github
+!/README.md
+!/CHANGELOG.md
 
 !/ClipBoardNotification.vcxproj
 !/ClipBoardNotification.h
