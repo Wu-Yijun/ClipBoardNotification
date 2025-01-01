@@ -1,0 +1,16 @@
+/.vs
+/x64
+/*
+
+# include
+!/.gitignore
+!/.github
+
+!/ClipBoardNotification.vcxproj
+!/ClipBoardNotification.h
+!/framework.h
+!/Resource.h
+!/targetver.h
+!/ClipBoardNotification.cpp
+!/ClipBoardNotification.rc
+!/small.ico

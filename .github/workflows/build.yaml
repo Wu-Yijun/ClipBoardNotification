@@ -1,0 +1,140 @@
+name: Build And Release
+
+on:
+  workflow_dispatch:
+  push:
+
+env:
+  EXECUTABLE_NAME: achievements_reminder
+  EXECUTABLE_CHECK_NAME: achievements_reminder-check
+
+  # ENABLE_CARGO_TEST: 'true'
+  ENABLE_CARGO_TEST: 'false'
+  ENABLE_CARGO_BUILD: 'true'
+  # ENABLE_CARGO_BUILD: 'false'
+  # ENABLE_PROGRAM_CHECK: 'true'
+  ENABLE_PROGRAM_CHECK: 'false'
+
+
+  # BUILD_ON_UBUNTU: 'true'
+  BUILD_ON_UBUNTU: 'false'
+  BUILD_ON_WINDOWS: 'true'
+  # BUILD_ON_WINDOWS: 'false'
+  # BUILD_ON_MAC: 'true'
+  BUILD_ON_MAC: 'false'
+
+  RUST_BACKTRACE: '1'
+  RUST_TOOLCHAIN: 'dtolnay'
+
+  UPLOAD_TO_GITHUB_RELEASE: 'true'
+  UPLOAD_TO_OLD_RELEASE: 'fales'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    steps:
+      # - name: Set outputs
+      #   id: set_outputs
+      #   run: |
+      #     echo "BUILD_ON_UBUNTU=${BUILD_ON_UBUNTU}" >> $GITHUB_ENV
+      #     echo "BUILD_ON_WINDOWS=${BUILD_ON_WINDOWS}" >> $GITHUB_ENV
+      #     echo "BUILD_ON_MAC=${BUILD_ON_MAC}" >> $GITHUB_ENV
+      - name: Get Latest Release ID
+        if: ${{ env.UPLOAD_TO_OLD_RELEASE == 'true' }}
+        id: GetLatestReleaseID
+        uses: actions/github-script@main
+        with:
+          script: |
+            const response = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            console.log(response);
+            return response.data.id;
+          result-encoding: string
+            
+      - name: Get date time
+        id: GetDateTime
+        uses: actions/github-script@main
+        with:
+          script: return new Date().toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '-');
+          result-encoding: string
+    outputs:
+      BUILD_ON_UBUNTU: ${{ env.BUILD_ON_UBUNTU }}
+      BUILD_ON_WINDOWS: ${{ env.BUILD_ON_WINDOWS }}
+      BUILD_ON_MAC: ${{ env.BUILD_ON_MAC }}
+      OLD_RELEASE_ID: ${{ steps.GetLatestReleaseID.outputs.result }}
+      DATE_TIME: ${{ steps.GetDateTime.outputs.result }}
+      
+
+  build_and_release:
+    needs: prepare
+    runs-on: ${{ matrix.os.system }}-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        os: 
+          - name: 'Build on Windows'
+            system: 'windows'
+            enabled: ${{ needs.prepare.outputs.BUILD_ON_WINDOWS == 'true' }}
+            
+    steps:
+      - uses: actions/checkout@main
+        if: ${{ matrix.os.enabled }}
+      - name: Setup msbuild
+        uses: microsoft/setup-msbuild@v2
+      - name: Build app for release
+        run: |
+          msbuild ./ClipBoardNotification.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release
+          mkdir release
+          mv ./x64/Release/ClipBoardNotification.exe ./release
+      
+      # Then upload the release
+      - name: Upload Artifact
+        if: ${{ matrix.os.enabled }}
+        uses: actions/upload-artifact@main
+        with:
+          name: ${{ env.EXECUTABLE_NAME }}_${{ matrix.os.system }}_${{ needs.prepare.outputs.DATE_TIME }}
+          path: ./release
+      - name: Upload Assets to GitHub Release
+        if: ${{ matrix.os.enabled && env.UPLOAD_TO_OLD_RELEASE == 'true' }}
+        uses: actions/github-script@main
+        with:
+          script: |
+            const fs = require('fs');
+            const path = "./release.zip";
+            const artifact = fs.readFileSync(path);
+            const artifactName = `${{ env.EXECUTABLE_NAME }}_${{ matrix.os.system }}_${{ needs.prepare.outputs.DATE_TIME }}.zip`;
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: '${{ needs.prepare.outputs.OLD_RELEASE_ID }}',
+              name: artifactName,
+              data: artifact
+            });
+  
+  conclude:
+    needs: build_and_release
+    # needs: prepare
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+      - name: Create Release and Upload assets
+        if: ${{ env.UPLOAD_TO_GITHUB_RELEASE == 'true' }}
+        uses: actions/github-script@main
+        with:
+          script: |
+            const response = await require('.github/workflows/create-release.js')({
+              github,
+              context,
+              core,
+              sha: '${{ github.sha }}',
+            });
+            console.log(response);
+      - name: Upload Artifact release body
+        if: ${{ env.UPLOAD_TO_GITHUB_RELEASE == 'true' }}
+        uses: actions/upload-artifact@main
+        with:
+          name: release_body
+          path: release_body.md
