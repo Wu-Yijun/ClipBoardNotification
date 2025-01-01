@@ -7,10 +7,16 @@ Unlike many existing clipboard managers, which are often large and feature-heavy
 ## Features
 
 - Display an icon in the system tray.
+  - ![icon](./assets/icon.png)
 - Detect and display **text** copied to the clipboard.
-- Detect and display **images** copied to the clipboard.
+  - ![text](./assets/text.png)
+- Detect and display **image** copied to the clipboard.
+  - ![image](./assets/image.png)
 - Detect and display **file paths** copied to the clipboard.
+  - ![files](./assets/files.png)
 - Automatically build and release using GitHub Actions.
+
+
 
 ## Why this Project?
 

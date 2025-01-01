@@ -5,3 +5,4 @@
 - [x] Detect the clipboard to copy **image** and display
 - [x] Detect the clipboard to copy **file path** and display
 - [x] Auto build and release using Github Actions
+- [x] Add Readme and BSD 3-Clause License

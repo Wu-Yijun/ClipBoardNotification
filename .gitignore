@@ -7,6 +7,8 @@
 !/.github
 !/README.md
 !/CHANGELOG.md
+!/LICENSE.txt
+!/assets
 
 !/ClipBoardNotification.vcxproj
 !/ClipBoardNotification.h
