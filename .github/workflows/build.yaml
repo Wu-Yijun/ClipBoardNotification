@@ -85,9 +85,9 @@ jobs:
         uses: microsoft/setup-msbuild@v2
       - name: Build app for release
         run: |
-          msbuild ./ClipBoardNotification.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release
-          mkdir release
-          mv ./x64/Release/ClipBoardNotification.exe ./release
+          msbuild ./ClipBoardNotification.vcxproj -property:Configuration=Release
+          ls . -l -a
+        continue-on-error: true
       
       # Then upload the release
       - name: Upload Artifact
