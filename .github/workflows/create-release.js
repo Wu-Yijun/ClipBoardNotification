@@ -5,6 +5,7 @@ module.exports = main;
 const CHANGELOG_FILE = 'CHANGELOG.md';
 const MAX_BODY_LENGTH = 125000;
 const LOCAL = ['zh-CN', {timeZone: 'CST'}, ' (Beijing UTC+8)'];
+// const LOCAL = ['zh-CN', {timeZone: 'Asia/Shanghai'}, ' (Beijing UTC+8)'];
 
 
 async function main({github, context, sha}) {
@@ -104,15 +105,15 @@ async function get_latest_tag({github, context}) {
     return {tag, tag_sha: sha};
   } catch (e) {
     console.log(`Error to get version and sha, return null`);
+    return {tag: `v0.1.0.${context.runNumber}`, tag_sha: false};
   }
-  return {tag: `v0.1.0.${context.runNumber}`, tag_sha: false};
 }
 
 async function get_release_body({execSync, fs, tag_sha, sha}) {
   // get necessary text
   execSync('git fetch --prune --unshallow');
   const commit_header =
-      execSync('git log ' + tag_sha ? tag_sha + '..' : '').toString().trim();
+      execSync('git log ' + (tag_sha ? tag_sha + '..' : '')).toString().trim();
   const changelog = fs.readFileSync(CHANGELOG_FILE, 'utf8');
 
   // link the text
