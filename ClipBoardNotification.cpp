@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <string>
+#include <vector>
 #include <iostream>
 #include <sstream>
 
@@ -60,6 +61,7 @@ void FixColorInversion() {
 
 // 获取剪切板内容
 int GetClipboard() {
+    printf("Clip Board Change!\n");
     if (!OpenClipboard(NULL)) {
         return -1; // cannot open clipboard
     }
@@ -69,23 +71,62 @@ int GetClipboard() {
         // 不是文字, 尝试图像
         hData = GetClipboardData(CF_DIB);
         if (hData == NULL) {
-            CloseClipboard();
-            return -2; // neither img nor text
+            // 不是图像, 尝试文件列表
+            hData = GetClipboardData(CF_HDROP);  // 获取文件列表
+            if (hData == NULL) {
+                CloseClipboard();
+                return -2;  // 不是文件 图像 文字
+            }
+            // 获取文件列表数量
+            UINT numFiles = DragQueryFile((HDROP)hData, 0xFFFFFFFF, NULL, 0);
+            if (numFiles == 0) {
+                GlobalUnlock(hData);
+                CloseClipboard();
+                return -5;  // 如果没有文件，返回空字符串
+            }
+
+            // 遍历文件列表并将文件路径拼接为字符串
+            std::wstring fileList;
+            for (UINT i = 0; i < numFiles; ++i) {
+                // 获取文件路径
+                UINT pathLength = DragQueryFile((HDROP)hData, i, NULL, 0) + 1;
+                std::vector<wchar_t> filePath(pathLength);
+
+                DragQueryFile((HDROP)hData, i, filePath.data(), pathLength);
+
+                // 将文件路径添加到文件列表中
+                if (i > 0) {
+                    fileList += L"\n";  // 用换行符分隔多个文件
+                }
+                fileList += filePath.data();
+                if (i > 10) {
+                    WCHAR cache[30];
+                    wsprintf(cache, L"\n... ... (%d files in total)", numFiles);
+                    fileList += cache;
+                    break;
+                }
+            }
+            // 粘贴到剪切板文字
+            clipboardText = fileList;
+            clipboardStr = clipboardText.c_str();
+            clipboardImg = NULL;
         }
-        // 获取图像数据
-        BITMAPINFO* pBitmapInfo = (BITMAPINFO*)GlobalLock(hData);
-        if (pBitmapInfo == NULL) {
-            GlobalUnlock(hData);
-            CloseClipboard();
-            return -4; // not valid bitmap
+        else {
+            // 获取图像数据
+            BITMAPINFO* pBitmapInfo = (BITMAPINFO*)GlobalLock(hData);
+            if (pBitmapInfo == NULL) {
+                GlobalUnlock(hData);
+                CloseClipboard();
+                return -4; // not valid bitmap
+            }
+            // 获取位图数据
+            void* pBits = (void*)((BYTE*)pBitmapInfo + pBitmapInfo->bmiHeader.biSize);
+            // 获取BITMAP对象
+            clipboardImg = CreateDIBitmap(GetDC(NULL), &pBitmapInfo->bmiHeader, CBM_INIT, pBits, pBitmapInfo, DIB_RGB_COLORS);
+            GetObject(clipboardImg, sizeof(BITMAP), &clipboardBitmap);
+            // FixColorInversion();
+            clipboardStr = NULL;
         }
-        // 获取位图数据
-        void* pBits = (void*)((BYTE*)pBitmapInfo + pBitmapInfo->bmiHeader.biSize);
-        // 获取BITMAP对象
-        clipboardImg = CreateDIBitmap(GetDC(NULL), &pBitmapInfo->bmiHeader, CBM_INIT, pBits, pBitmapInfo, DIB_RGB_COLORS);
-        GetObject(clipboardImg, sizeof(BITMAP), &clipboardBitmap);
-        // FixColorInversion();
-        clipboardStr = NULL;
     }
     else {
         // 获取剪切板文字
@@ -341,7 +382,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
     default:
         // std::cerr << "oct: " << msg << std::endl;
-        printf("Msg: 0x%X\n", msg);
+        // printf("Msg: 0x%X\n", msg);
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
     return 0;

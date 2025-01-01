@@ -112,7 +112,7 @@ async function get_release_body({execSync, fs, tag_sha, sha}) {
   // get necessary text
   execSync('git fetch --prune --unshallow');
   const commit_header =
-      execSync(`git log ${tag_sha ? tag_sha : ''}..`).toString().trim();
+      execSync('git log ' + tag_sha ? tag_sha + '..' : '').toString().trim();
   const changelog = fs.readFileSync(CHANGELOG_FILE, 'utf8');
 
   // link the text
