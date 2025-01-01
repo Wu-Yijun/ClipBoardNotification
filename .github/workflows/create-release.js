@@ -4,8 +4,8 @@ module.exports = main;
 
 const CHANGELOG_FILE = 'CHANGELOG.md';
 const MAX_BODY_LENGTH = 125000;
-const LOCAL = ['zh-CN', {timeZone: 'CST'}, ' (Beijing UTC+8)'];
-// const LOCAL = ['zh-CN', {timeZone: 'Asia/Shanghai'}, ' (Beijing UTC+8)'];
+// const LOCAL = ['zh-CN', {timeZone: 'CST'}, ' (Beijing UTC+8)'];
+const LOCAL = ['zh-CN', {timeZone: 'Asia/Shanghai'}, ' (Beijing UTC+8)'];
 
 
 async function main({github, context, sha}) {
