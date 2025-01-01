@@ -86,7 +86,8 @@ jobs:
       - name: Build app for release
         run: |
           msbuild ./ClipBoardNotification.vcxproj -property:Configuration=Release
-          ls . -l -a
+          ls .
+          ls ./Release
         continue-on-error: true
       
       # Then upload the release

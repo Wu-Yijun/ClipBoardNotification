@@ -27,7 +27,6 @@ async function main({github, context, sha}) {
     owner: context.repo.owner,
     repo: context.repo.repo,
     tag_name: tag,
-    // target_commitish: sha,
     name: name,
     body: body,
     draft: false,
@@ -90,15 +89,20 @@ async function get_latest_tag({github, context}) {
     repo: context.repo.repo,    // name of the repo
     per_page: 1                 // only need the first tag
   });
-  const {name, commit: {sha}} = response.data[0];
-  // extract the version number from the tag (v1.2.3.4 => major=1, minor=2,
-  // patch=3, build=4) need to convert the version numbers from string to number
-  const [major, minor, patch, build] = name.substr(1).split('.').map(Number);
-  console.log(`ma: ${major}, mi: ${minor}, p: ${patch}, b: ${build};`);
-  console.log(`runNumber: ${context.runNumber}`);
-  // increment the patch number and change build to running number
-  const tag = `v${major}.${minor}.${patch + 1}.${context.runNumber}`;
-  return {tag, tag_sha: sha};
+  try{
+    const {name, commit: {sha}} = response.data[0];
+    // extract the version number from the tag (v1.2.3.4 => major=1, minor=2,
+    // patch=3, build=4) need to convert the version numbers from string to number
+    const [major, minor, patch, build] = name.substr(1).split('.').map(Number);
+    console.log(`major: ${major}, minor: ${minor}, patch: ${patch}, build: ${build};`);
+    console.log(`run number: ${context.runNumber}`);
+    // increment the patch number and change build to running number
+    const tag = `v${major}.${minor}.${patch + 1}.${context.runNumber}`;
+    return {tag, tag_sha: sha};
+  }catch(e){
+    console.log(`Error to get version and sha, return null`);
+  }
+  return {tag: `v0.1.0.${context.runNumber}`, tag_sha: false};
 }
 
 async function get_release_body({execSync, fs, tag_sha, sha}) {
@@ -106,17 +110,19 @@ async function get_release_body({execSync, fs, tag_sha, sha}) {
   execSync('git fetch --prune --unshallow');
   const commit_header = execSync(`git log ${tag_sha}..`).toString().trim();
   const changelog = fs.readFileSync(CHANGELOG_FILE, 'utf8');
-  const commit_diff =
-      execSync(`git diff --word-diff=porcelain ${tag_sha} ${sha}`).toString();
 
   // link the text
   let body_raw = '## *Commits*:\n\n';
   body_raw += trim_commit_header(commit_header);
   body_raw += '\n\n---\n\n' + changelog;
-  body_raw += '\n\n---\n\n## *Git Diff*:\n\n';
-  body_raw += `<details><summary>Changes are listed as follows:</summary>\n`;
-  body_raw += trim_diff(commit_diff);
-  body_raw += '</details>\n';
+  if(tag_sha!==false){
+    const commit_diff =
+        execSync(`git diff --word-diff=porcelain ${tag_sha} ${sha}`).toString();
+    body_raw += '\n\n---\n\n## *Git Diff*:\n\n';
+    body_raw += `<details><summary>Changes are listed as follows:</summary>\n`;
+    body_raw += trim_diff(commit_diff);
+    body_raw += '</details>\n';
+  }
 
   if (body_raw.length > MAX_BODY_LENGTH) {
     const body =
@@ -275,43 +281,43 @@ function trim_diff(diff) {
   // 如果下一个是 non-basic, 则需将最后添加 \t\\\\\n
   let result = '';
   let is_state_basic = true;
-  var suffixs;
+  var suffix;
   var wrap_lines;
-  const isbasic = (line) => !!line && line[0] === 'basic';
-  const isnewline = (line) => !!line && !!line[3];
-  const isnonbasic = (line) => !!line &&
+  const is_basic = (line) => !!line && line[0] === 'basic';
+  const is_newline = (line) => !!line && !!line[3];
+  const is_nonbasic = (line) => !!line &&
       (line[0] === 'change' || line[0] === 'prefix' || line[0] === 'suffix');
 
   for (let i = 0; i < typed_lines.length; i++) {
     let line = typed_lines[i];
-    if (isbasic(line)) {
+    if (is_basic(line)) {
       // basic
       if (!is_state_basic) {
-        result += linkLinesWithSuffix(wrapLines(wrap_lines), suffixs);
+        result += linkLinesWithSuffix(wrapLines(wrap_lines), suffix);
         result += '\n';
         is_state_basic = true;
       }
       result += line[1] + '\n';
-    } else if (isnonbasic(line)) {
-      // non-baisc
+    } else if (is_nonbasic(line)) {
+      // non-basic
       if (is_state_basic) {
         result += '\n';
         is_state_basic = false;
         wrap_lines = [];
-        suffixs = [];
+        suffix = [];
       }
-      if (isnewline(typed_lines[i])) {
+      if (is_newline(typed_lines[i])) {
         // result += line[1] + '\t\\n\n';
         wrap_lines.push(line[1]);
-        suffixs.push('\t\\n\n');
-      } else if (isnonbasic(typed_lines[i + 1])) {
+        suffix.push('\t\\n\n');
+      } else if (is_nonbasic(typed_lines[i + 1])) {
         // result += line[1] + '\t\\\\\n';
         wrap_lines.push(line[1]);
-        suffixs.push('\t\\\n');
-      } else if (isbasic(typed_lines[i + 1])) {
+        suffix.push('\t\\\n');
+      } else if (is_basic(typed_lines[i + 1])) {
         // result += line[1] + '\n';
         wrap_lines.push(line[1]);
-        suffixs.push('\n');
+        suffix.push('\n');
       }
     }
   }
@@ -361,10 +367,10 @@ function wrapLines(lines) {
   return lines;
 }
 
-function linkLinesWithSuffix(lines, suffixs) {
+function linkLinesWithSuffix(lines, suffix) {
   let res = '';
   for (let i = 0; i < lines.length; i++) {
-    res += lines[i] + suffixs[i];
+    res += lines[i] + suffix[i];
   }
   return res;
 }
